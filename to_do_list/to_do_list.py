@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QMainWindow, QLineEdit, QPushButton, QTableWidget, QLabel, QMessageBox, QVBoxLayout, QWidget, QTableWidgetItem, QComboBox
-from PySide6.QtCore import Slot
+from PySide6.QtCore import Slot, Signal
 from to_do_list.task_editor import TaskEditor
 import csv
 
@@ -7,7 +7,9 @@ class ToDoList(QMainWindow):
     def __init__(self):
         super().__init__()
         self.__initialize_widgets()
-
+        self.__on_add_task
+        self.add_button.clicked.connect(self.__on_add_task)
+        self.task_table.cellClicked.connect(self.__on_edit_task)
 
     def __initialize_widgets(self):
         """
@@ -78,3 +80,65 @@ class ToDoList(QMainWindow):
             writer = csv.writer(csvfile)
             # Write header
             writer.writerow(["Task", "Status"])
+
+    @Slot(Signal)
+    def __on_add_task(self):
+        """
+        Adds a new task to the task table with input data
+
+        Args:
+            none
+        """
+
+        task = self.task_input.text()
+        status_combo = self.status_combo.currentText()
+
+        try:
+            if task:
+                table_count = self.task_table.rowCount()
+                self.task_table.insertRow(table_count)
+
+                task_item = QTableWidgetItem(task)
+                status_item = QTableWidgetItem(status_combo)
+
+                self.task_table.setItem(table_count, 0, task_item)
+                self.task_table.setItem(table_count, 1, status_item)
+
+                self.status_label.setText(f"Added task: {task}")
+            else:
+                self.status_label.setText("Please enter a task and select its status.")
+        except ValueError as e:
+            self.status_label.setText(e)
+
+    @Slot(Signal)
+    def __on_edit_task(self, row, column):
+        """
+        Edits the status of the task in the task table
+
+        Args:
+            row (int): row that has been clicked on
+            column (int): column that has been clicked on
+        """
+        current_status = self.task_table.item(row, 1).text()
+
+        editor = TaskEditor(row, current_status)
+
+        editor.signal_name.connect(self.__update_task_status)
+    
+        if editor.exec_():
+            new_status = editor.status_combo.currentText()
+            self.task_table.item(row, 1).setText(new_status)
+        
+    @Slot(Signal)
+    def __update_task_status(self, row: int, new_status: str):
+        """
+        Updates the status of a task in the task table
+
+        Args:
+            row (int): The row of the task to update in the task_table
+            new_status (str): The new status value to set for the task
+        """
+        status_item = QTableWidgetItem(new_status)
+        self.task_table.setItem(row, 1, status_item) 
+        
+        self.status_label.setText(f"Task status updated to: {new_status}")
